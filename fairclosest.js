@@ -61,9 +61,7 @@
         });
 
         elevators.forEach(function(elevator, elevatorNum) {
-            elevator.previousLoadFactor = 0;
             elevator.elevatorNum = elevatorNum;
-            elevator.goingToFloor = 0;
             elevator.peopleGoingTo = Array.apply(null, new Array(floors.length)).map(Number.prototype.valueOf,0);
             elevator.peopleQueue = [[]];
 

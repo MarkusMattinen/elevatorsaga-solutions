@@ -1,10 +1,24 @@
+// by Markus Mattinen
+//
+// This solution should complete challenges 1-16 most of the time. Sometimes it gets unlucky on the very last challenges, just try again if that happens.
+// Some configuration is required for some levels, see the first couple of lines of the code.
+//
+// The idea is to use empty elevators to pick up people in the order that the buttons at the floors are pressed to be as fair as possible.
+// Of course multiple elevators are never sent to a floor at the same time to pick up the same people.
+//
+// After picking people up, they are taken to their destination floors in the order that they were picked up in, or in case multiple people were picked up at once,
+// the closest ones will be taken first.
+//
+// This solution also includes code for counting how many people are in each elevator at each time.
+// Unfortunately it appears to be impossible to count how many people are waiting on each floor.
+
 {
     init: function(elevators, floors) {
         // Configuration
         var saveMoves = false; // set to true for "Transport x people using y elevator moves or less" challenges.
                                // Only moves when the elevator is full and only one floor at a time.
-        var preferPickingUpMoreWhenCarryingLessThan = 1; // 3 should be used for the "Transport x people in y seconds or less" challenges
-                                                         // and 1 for the "Transport x people and let no one wait for more than y seconds" challenges
+        var preferPickingUpMoreWhenCarryingLessThan = 1; // 3 should be used for the "Transport x people in y seconds or less" challenges so we don't just carry one person around all the time
+                                                         // and 1 for the "Transport x people and let no one wait for more than y seconds" challenges for maximum fairness
 
         floors.waitQueue = [];
         floors.addToWaitQueue = function(floorNum) {

@@ -1,0 +1,3 @@
+Fair/Closest algorithm:
+- Remember the order in which buttons are pressed by people in the elevator, and deliver the people in that order
+ - Maybe try to still deliver to the closest floor in case multiple people are picked up at once? How would we know that though? Well people only get in the elevator when it stops...

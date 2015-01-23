@@ -56,6 +56,7 @@
             elevator.elevatorNum = elevatorNum;
             elevator.goingToFloor = 0;
             elevator.peopleGoingTo = Array.apply(null, new Array(floors.length)).map(Number.prototype.valueOf,0);
+            elevator.peopleQueue = [[]];
 
             elevator.queueToFloor = function(floor, force) {
                 this.goToFloor(floor.floorNum(), force);
@@ -131,10 +132,16 @@
                 var minimumPeopleInElevator = saveMoves ? 4 : 0;
 
                 var thisElevator = this;
-                this.peopleGoingTo.forEach(function(count, floorNum) {
+                var queue = this.peopleQueue[0];
+
+                if (queue.length === 0) {
+                    return;
+                }
+
+                queue.forEach(function(floorNum) {
                     var delta = Math.abs(floorNum - thisElevator.currentFloor());
 
-                    if (count > 0 && delta < closestFloor.delta && thisElevator.peopleIn() >= minimumPeopleInElevator) {
+                    if (delta < closestFloor.delta && thisElevator.peopleIn() >= minimumPeopleInElevator) {
                         closestFloor = { floorNum: floorNum, delta: delta };
                     }
                 });
@@ -154,10 +161,32 @@
                 }
             });
             elevator.on("floor_button_pressed", function(floorNum) {
+                var currentQueue = elevator.peopleQueue[elevator.peopleQueue.length - 1];
+
+                if (currentQueue.indexOf(floorNum) === -1) {
+                    currentQueue.push(floorNum);
+                }
+
                 elevator.peopleGoingTo[floorNum] += 1;
                 elevator.checkIdle();
             });
             elevator.on("stopped_at_floor", function(floorNum) {
+                elevator.peopleQueue = elevator.peopleQueue.map(function(queue) {
+                    var index = queue.indexOf(floorNum);
+
+                    if (index !== -1) {
+                        queue.splice(index, 1);
+                    }
+
+                    return queue;
+                });
+
+                elevator.peopleQueue = elevator.peopleQueue.filter(function(queue) {
+                    return queue.length !== 0;
+                });
+
+                elevator.peopleQueue.push([]);
+
                 floors.removeFromWaitQueue(floorNum);
                 floors[floorNum].elevatorsGoing[elevatorNum] = false;
                 floors[floorNum].peopleWaiting = false;

@@ -1,9 +1,10 @@
 {
     init: function(elevators, floors) {
         // Configuration
-        var saveMoves = false; // for "Transport x people using y elevator moves or less" challenges. Only moves when the elevator is full and only one floor at a time.
-        var stopWhenPassing = false;
-        var preferPickingUpMoreWhenCarryingLessThan = 1;
+        var saveMoves = false; // set to true for "Transport x people using y elevator moves or less" challenges.
+                               // Only moves when the elevator is full and only one floor at a time.
+        var preferPickingUpMoreWhenCarryingLessThan = 1; // 3 should be used for the "Transport x people in y seconds or less" challenges
+                                                         // and 1 for the "Transport x people and let no one wait for more than y seconds" challenges
 
         floors.waitQueue = [];
         floors.addToWaitQueue = function(floorNum) {
@@ -93,6 +94,10 @@
             };
 
             elevator.goToFloorOrTowards = function(floor, clear, force) {
+                if (floor.floorNum() === elevator.currentFloor()) {
+                    return;
+                }
+                
                 if (saveMoves) {
                     this.goTowardsFloor(floor, force);
                 } else if (clear) {
@@ -118,7 +123,6 @@
                 }
 
                 if (this.peopleIn() < preferPickingUpMoreWhenCarryingLessThan && !saveMoves) {
-                    console.log("elevator", this.elevatorNum, "trying to pick up more people", floors.waitQueue);
                     for (var i = 0; i < floors.waitQueue.length; ++i) {
                         if (floors[floors.waitQueue[i]].countCapacityOfElevatorsGoing() === 0) {
                             this.goToFloorOrTowards(floors[floors.waitQueue[i]], true);
@@ -127,8 +131,7 @@
                     }
                 }
 
-                console.log("elevator", this.elevatorNum, "trying to transport people in the elevator");
-                var closestFloor = { floorNum: 0, delta: 999 };
+                var closestFloor = { floorNum: this.currentFloor(), delta: 999 };
                 var minimumPeopleInElevator = saveMoves ? 4 : 0;
 
                 var thisElevator = this;
@@ -146,19 +149,12 @@
                     }
                 });
 
-                if (closestFloor.delta < 999) {
-                    this.goToFloorOrTowards(floors[closestFloor.floorNum], true);
-                }
+                this.goToFloorOrTowards(floors[closestFloor.floorNum], true);
             };
 
             elevator.on("idle", function() {
                 elevator.idle = true;
                 elevator.checkIdle();
-            });
-            elevator.on("passing_floor", function(floorNum, direction) {
-                if (stopWhenPassing && (elevator.peopleGoingTo[floorNum] > 0 || floors[floorNum].peopleWaiting)) {
-                    elevator.goToFloorOrTowards(floors[floorNum], false, true);
-                }
             });
             elevator.on("floor_button_pressed", function(floorNum) {
                 var currentQueue = elevator.peopleQueue[elevator.peopleQueue.length - 1];

@@ -10,6 +10,11 @@
 // the closest ones will be taken first.
 //
 // This solution also includes code for counting how many people are in each elevator at each time.
+// This is done by counting the number of times the buttons in the elevator are pressed
+// (every person presses it again even if the previous person already pressed the same button)
+// and when the elevator stops, we subtract the number of people who had pressed the button for that
+// floor from the number of people in the elevator.
+//
 // Unfortunately it appears to be impossible to count how many people are waiting on each floor.
 
 {
@@ -20,7 +25,9 @@
         var preferPickingUpMoreWhenCarryingLessThan = 1; // 3 should be used for the "Transport x people in y seconds or less" challenges so we don't just carry one person around all the time
                                                          // and 1 for the "Transport x people and let no one wait for more than y seconds" challenges for maximum fairness
 
+        // Queue for floors to pick up people at, in the order the buttons were first pressed
         floors.waitQueue = [];
+        // this function adds a floor to the pick-up wait queue if the floor is not already there
         floors.addToWaitQueue = function(floorNum) {
             if (floors.waitQueue.indexOf(floorNum) === -1) {
                 floors.waitQueue.push(floorNum);
@@ -34,15 +41,24 @@
             }
         };
         
+        // This function is called whenever something happens, in case some elevator previously had
+        // nothing to do but now there is a person to pick up on another floor.
         var checkElevators = function() {
             elevators.forEach(function(elevator, elevatorNum) {
                 elevator.checkIdle();
             });
         };
 
+        // Configure floor events
         floors.forEach(function(floor) {
+            // Are there people waiting at this floor
             floor.peopleWaiting = false;
+            // Which elevators are currently going to this floor (used to prevent multiple elevators picking up the same person)
             floor.elevatorsGoing = Array.apply(null, new Array(elevators.length)).map(Number.prototype.valueOf,0);
+            // This is used to determine if multiple elevators need to be sent to a floor
+            // TODO: we know how many people the full elevator will drop off at the destination,
+            // so maybe we should use that in this calculation. But it might still make sense
+            // to send another elevator, because there might be even more people waiting.
             floor.countCapacityOfElevatorsGoing = function() {
                 return this.elevatorsGoing.reduce(function(capacitySum, going, elevatorNum) {
                     if (going) {
@@ -53,6 +69,7 @@
                 }, 0);
             };
 
+            // Add people to the wait queue in the order that they press the button.
             floor.on("up_button_pressed down_button_pressed", function() {
                 floor.peopleWaiting = true;
                 floors.addToWaitQueue(floor.floorNum());
@@ -60,23 +77,34 @@
             });
         });
 
+        // Configure elevator events
         elevators.forEach(function(elevator, elevatorNum) {
             elevator.elevatorNum = elevatorNum;
+            // Number of people in this elevator going to each floor
+            // Calculated from the number of times each floor's button has been pressed
             elevator.peopleGoingTo = Array.apply(null, new Array(floors.length)).map(Number.prototype.valueOf,0);
+            // Queue for the order people have entered the elevator, so we can take
+            // them to their destinations as fairly as possible
             elevator.peopleQueue = [[]];
 
+            // The destination queue is not really used in this solution, we just go from
+            // idle straight to whichever floor we want to go to and then back to idle.
             elevator.goToFloorAndClearQueue = function(floor) {
                 this.destinationQueue = [ floor.floorNum() ];
                 this.checkDestinationQueue();
                 this.idle = false;
 
+                // Assume that this elevator will only stop at the final destination.
                 floors.forEach(function(floor) {
                     floor.elevatorsGoing[this.elevatorNum] = false;
                 });
 
+                // Make sure others don't go to the same floor at the same time.
                 floor.elevatorsGoing[this.elevatorNum] = true;
             };
 
+            // This is used for solving the levels where we need to use as little moves as possible.
+            // So we only move one floor at a time.
             elevator.goTowardsFloor = function(floor) {
                 var floorDelta = 1;
 
@@ -89,6 +117,7 @@
                 this.goToFloorAndClearQueue(floors[destinationFloorNum]);
             };
 
+            // Check the configuration.
             elevator.goToFloorOrTowards = function(floor) {
                 if (floor.floorNum() === elevator.currentFloor()) {
                     return;
@@ -101,25 +130,34 @@
                 }
             };
 
+            // Calculate how many people are currently in this elevator.
             elevator.peopleIn = function() {
                 return elevator.peopleGoingTo.reduce(function(sum, current) {
                     return sum + current;
                 }, 0);
             };
 
+            // How many people can still fit in the elevator.
             elevator.capacity = function() {
                 return 4 - this.peopleIn();
             };
 
+            // If we're idle, try to pick up some people or drop someone off.
             elevator.checkIdle = function() {
                 if (!this.idle) {
                     return;
                 }
 
+                // Only pick up people if we have room.
                 if (this.peopleIn() < preferPickingUpMoreWhenCarryingLessThan && !saveMoves) {
                     for (var i = 0; i < floors.waitQueue.length; ++i) {
+                        // Pick up in the order that the buttons were first pressed on each floor.
                         var floor = floors[floors.waitQueue[i]];
                         
+                        // TODO: should we be more aggressive in sending extra elevators when there
+                        // is only little capacity? We can't really know how many people there
+                        // are waiting on the floor, but it could easily be more than 1 + the number
+                        // of people we will drop off at that floor.
                         if (floor.countCapacityOfElevatorsGoing() === 0) {
                             this.goToFloorOrTowards(floor);
                             return;
@@ -128,15 +166,20 @@
                 }
 
                 var closestFloor = { floorNum: this.currentFloor(), delta: 999 };
+                // If we're trying to use as little moves as possible, only move when the elevator is full.
                 var minimumPeopleInElevator = saveMoves ? 4 : 0;
 
                 var thisElevator = this;
+                // Take the people who have been in the elevator the longest to their destination first.
                 var queue = this.peopleQueue[0];
 
+                // If there is nobody in the elevator, do nothing.
                 if (queue.length === 0) {
                     return;
                 }
 
+                // If many people entered the elevator at the same time, drop off the one whose destination floor is
+                // closest to the elevator's current position first.
                 queue.forEach(function(floorNum) {
                     var delta = Math.abs(floorNum - thisElevator.currentFloor());
 
@@ -148,11 +191,15 @@
                 this.goToFloorOrTowards(floors[closestFloor.floorNum], true);
             };
 
+            // We just stopped, so check for people to pick up or drop off.
+            // Since we don't use the command queue, this happens quite often.
             elevator.on("idle", function() {
                 elevator.idle = true;
                 elevator.checkIdle();
             });
             
+            // People will be taken to their destinations in the order that they enter the elevator
+            // (except when multiple people enter on the same floor)
             elevator.on("floor_button_pressed", function(floorNum) {
                 var currentQueue = elevator.peopleQueue[elevator.peopleQueue.length - 1];
 
@@ -165,6 +212,8 @@
             });
             
             elevator.on("stopped_at_floor", function(floorNum) {
+                // Everyone in this elevator coming to this floor will have left the elevator now
+                // so clean up the destination queue of the people in this elevator
                 elevator.peopleQueue = elevator.peopleQueue.map(function(queue) {
                     var index = queue.indexOf(floorNum);
 
@@ -175,15 +224,23 @@
                     return queue;
                 });
 
+                // Remove empty queue elements
                 elevator.peopleQueue = elevator.peopleQueue.filter(function(queue) {
                     return queue.length !== 0;
                 });
 
+                // When we next arrive at a floor, group the arrivals together so that
+                // they can be assumed to have entered the elevator at the same time
                 elevator.peopleQueue.push([]);
 
+                // Assume that everyone was able to fit in the elevator
+                // (if not, they will press the button again and end up in the end of the queue...)
+                // TODO: they should really go in the beginning of the queue, but how can we tell apart people
+                // that got left behind and people who just happen to arrive just as the elevator is leaving?
                 floors.removeFromWaitQueue(floorNum);
-                floors[floorNum].elevatorsGoing[elevatorNum] = false;
                 floors[floorNum].peopleWaiting = false;
+                // allow other elevators to come to this floor if there are more people to pick up
+                floors[floorNum].elevatorsGoing[elevatorNum] = false;
                 elevator.peopleGoingTo[floorNum] = 0;
             });
         });

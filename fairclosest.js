@@ -55,10 +55,6 @@
             floor.peopleWaiting = false;
             // Which elevators are currently going to this floor (used to prevent multiple elevators picking up the same person)
             floor.elevatorsGoing = Array.apply(null, new Array(elevators.length)).map(Number.prototype.valueOf,0);
-            // This is used to determine if multiple elevators need to be sent to a floor
-            // TODO: we know how many people the full elevator will drop off at the destination,
-            // so maybe we should use that in this calculation. But it might still make sense
-            // to send another elevator, because there might be even more people waiting.
             floor.countCapacityOfElevatorsGoing = function() {
                 return this.elevatorsGoing.reduce(function(capacitySum, going, elevatorNum) {
                     if (going) {
@@ -161,10 +157,6 @@
                         // Pick up in the order that the buttons were first pressed on each floor.
                         var floor = floors[floors.waitQueue[i]];
                         
-                        // TODO: should we be more aggressive in sending extra elevators when there
-                        // is only little capacity? We can't really know how many people there
-                        // are waiting on the floor, but it could easily be more than 1 + the number
-                        // of people we will drop off at that floor.
                         if (floor.countCapacityOfElevatorsGoing() === 0) {
                             this.goToFloorOrTowards(floor);
                             return;
@@ -241,9 +233,7 @@
                 elevator.peopleQueue.push([]);
 
                 // Assume that everyone was able to fit in the elevator
-                // (if not, they will press the button again and end up in the end of the queue...)
-                // TODO: they should really go in the beginning of the queue, but how can we tell apart people
-                // that got left behind and people who just happen to arrive just as the elevator is leaving?
+                // (if not, they will press the button again and end up in the end of the queue)
                 floors.removeFromWaitQueue(floorNum);
                 floors[floorNum].peopleWaiting = false;
                 // allow other elevators to come to this floor if there are more people to pick up

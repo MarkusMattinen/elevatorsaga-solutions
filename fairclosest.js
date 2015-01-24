@@ -62,7 +62,7 @@
             floor.countCapacityOfElevatorsGoing = function() {
                 return this.elevatorsGoing.reduce(function(capacitySum, going, elevatorNum) {
                     if (going) {
-                        return capacitySum + elevators[elevatorNum].capacity();
+                        return capacitySum + elevators[elevatorNum].capacity() + elevators[elevatorNum].peopleGoingTo[floor.floorNum()];
                     } else {
                         return capacitySum;
                     }

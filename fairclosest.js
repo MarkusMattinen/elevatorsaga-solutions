@@ -148,6 +148,13 @@
                     return;
                 }
 
+                // Try to work around the fact that sometimes people get in the elevator and only press the button once it has
+                // started moving by using the load factor. If the load factor tells us that there is someone in but they haven't pressed
+                // a button yet, wait for them to press it before we start moving.
+                if (this.peopleIn() === 0 && this.loadFactor() > 0) {
+                    return;
+                }
+
                 // Only pick up people if we have room.
                 if (this.peopleIn() < preferPickingUpMoreWhenCarryingLessThan && !saveMoves) {
                     for (var i = 0; i < floors.waitQueue.length; ++i) {

@@ -19,11 +19,23 @@
 
 {
     init: function(elevators, floors) {
-        // Configuration
-        var saveMoves = false; // set to true for "Transport x people using y elevator moves or less" challenges.
-                               // Only moves when the elevator is full and only one floor at a time.
-        var improveThroughput = false; // set to true for"Transport x people in y seconds or less" challenges so we don't just carry one person around all the time
-                                      // and false for the "Transport x people and let no one wait for more than y seconds" challenges for maximum fairness
+        // Automatically determine which algorithm to use from the challenge number.
+        var throughputChallenges = [ 1, 2, 3, 4, 5 ];
+        var saveMovesChallenges = [ 6, 7 ];
+
+        var path = document.URL.substr(document.URL.lastIndexOf("#"));
+        var params = _.reduce(path.split(","), function(result, part) {
+            var match = part.match(/(\w+)=(\w+$)/);
+
+            if (match) {
+                result[match[1]] = match[2];
+            }
+
+            return result;
+        }, {});
+        var challenge = ~~params.challenge;
+        var improveThroughput = throughputChallenges.indexOf(challenge) != -1;
+        var saveMoves = saveMovesChallenges.indexOf(challenge) != -1;
 
         // Queue for floors to pick up people at, in the order the buttons were first pressed
         floors.waitQueue = [];

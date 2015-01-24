@@ -22,8 +22,8 @@
         // Configuration
         var saveMoves = false; // set to true for "Transport x people using y elevator moves or less" challenges.
                                // Only moves when the elevator is full and only one floor at a time.
-        var preferPickingUpMoreWhenCarryingLessThan = 1; // 3 should be used for the "Transport x people in y seconds or less" challenges so we don't just carry one person around all the time
-                                                         // and 1 for the "Transport x people and let no one wait for more than y seconds" challenges for maximum fairness
+        var improveThroughput = false; // set to true for"Transport x people in y seconds or less" challenges so we don't just carry one person around all the time
+                                      // and false for the "Transport x people and let no one wait for more than y seconds" challenges for maximum fairness
 
         // Queue for floors to pick up people at, in the order the buttons were first pressed
         floors.waitQueue = [];
@@ -152,7 +152,7 @@
                 }
 
                 // Only pick up people if we have room.
-                if (this.peopleIn() < preferPickingUpMoreWhenCarryingLessThan && !saveMoves) {
+                if (this.peopleIn() === 0 && !saveMoves) {
                     for (var i = 0; i < floors.waitQueue.length; ++i) {
                         // Pick up in the order that the buttons were first pressed on each floor.
                         var floor = floors[floors.waitQueue[i]];
@@ -164,30 +164,46 @@
                     }
                 }
 
-                var closestFloor = { floorNum: this.currentFloor(), delta: 999 };
                 // If we're trying to use as little moves as possible, only move when the elevator is full.
                 var minimumPeopleInElevator = saveMoves ? 4 : 0;
-
                 var thisElevator = this;
-                // Take the people who have been in the elevator the longest to their destination first.
-                var queue = this.peopleQueue[0];
 
-                // If there is nobody in the elevator, do nothing.
-                if (queue.length === 0) {
-                    return;
-                }
+                // In maximum fairness mode, always drop off the person who entered first, or is closest in case many entered at the same time
+                if (!improveThroughput) {
+                    var closestFloor = { floorNum: this.currentFloor(), delta: 999 };
 
-                // If many people entered the elevator at the same time, drop off the one whose destination floor is
-                // closest to the elevator's current position first.
-                queue.forEach(function(floorNum) {
-                    var delta = Math.abs(floorNum - thisElevator.currentFloor());
+                    // Take the people who have been in the elevator the longest to their destination first.
+                    var queue = this.peopleQueue[0];
 
-                    if (delta < closestFloor.delta && thisElevator.peopleIn() >= minimumPeopleInElevator) {
-                        closestFloor = { floorNum: floorNum, delta: delta };
+                    // If there is nobody in the elevator, do nothing.
+                    if (queue.length === 0) {
+                        return;
                     }
-                });
 
-                this.goToFloorOrTowards(floors[closestFloor.floorNum], true);
+                    // If many people entered the elevator at the same time, drop off the one whose destination floor is
+                    // closest to the elevator's current position first.
+                    queue.forEach(function(floorNum) {
+                        var delta = Math.abs(floorNum - thisElevator.currentFloor());
+
+                        if (delta < closestFloor.delta && thisElevator.peopleIn() >= minimumPeopleInElevator) {
+                            closestFloor = { floorNum: floorNum, delta: delta };
+                        }
+                    });
+
+                    this.goToFloorOrTowards(floors[closestFloor.floorNum], true);
+                } else {
+                    // In throughput mode, drop off as many people as possible, on whichever floor is closest out of the floors that the same number of people want to go to
+                    var bestFloor = { floorNum: this.currentFloor(), count: 0, delta: 999 };
+                    thisElevator.peopleGoingTo.forEach(function(count, floorNum) {
+                        var delta = Math.abs(floorNum - thisElevator.currentFloor());
+
+                        if ((count > bestFloor.count || (count === bestFloor.count && delta < bestFloor.delta)) && thisElevator.peopleIn() >= minimumPeopleInElevator) {
+                            bestFloor = { floorNum: floorNum, count: count };
+                        }
+                    });
+
+                    this.goToFloorOrTowards(floors[bestFloor.floorNum], true);
+                }
             };
 
             // We just stopped, so check for people to pick up or drop off.
